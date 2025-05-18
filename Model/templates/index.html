@@ -483,6 +483,9 @@ beforeSend: function () {
                         // Stop progress bar and set it to 100%
                         clearInterval($("#progress-bar").data("intervalId"));
                         $("#progress-bar").css("width", "100%");
+                        $("#predict-button").prop("disabled", false);
+                        $("#discard-button").prop("disabled", false);
+                        $("#open-chart-button").prop("disabled", false);
                         if (response.error) {
                             alert("Error: " + response.error);
                         } else {
@@ -515,6 +518,7 @@ beforeSend: function () {
                     $("#prediction-results").hide();
                     $("#predict-button").prop("disabled", true);
                     $("#discard-button").prop("disabled", true);
+                    $("#open-chart-button").prop("disabled", false);
                 },
             });
         });
