@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetinAI</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: x-large;
+            text-align: center;
+            /* background-color: #f9f9f9; */
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #e0f7fa, #fce4ec);
+            min-height: 100vh;
+        }
+        .content-container {
+            max-width: 50%;
+            margin: auto;
+            padding: 1% 2%;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin-top: 20px;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .image-container {
+            position: relative;
+            margin: 10px;
+            width: 250px;
+            height: 250px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fff;
+        }
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Fit image inside container */
+            object-position: center; /* Center the image */
+            display: none;
+        }
+        .upload-button {
+            position: absolute;
+            text-align: center;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            z-index: 1;
+        }
+        .upload-button:hover {
+            background-color: #45a049;
+        }
+        input[type="file"] {
+            opacity: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: rgba(0, 255, 0, 0.7);
+            display: none;
+            animation: scan 2s linear infinite; /* Add animation */
+        }
+        @keyframes scan {
+            0% {
+                top: 0;
+            }
+            50% {
+                top: calc(100% - 5px);
+            }
+            100% {
+                top: 0;
+            }
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #predict-button {
+            background-color: #2196f3;
+            color: white;
+        }
+        #predict-button:hover {
+            background-color: #1976d2;
+        }
+        #predict-button:disabled {
+            background-color: #b0bec5;
+            cursor: not-allowed;
+        }
+        #discard-button {
+            background-color: #f44336;
+            color: white;
+        }
+        #discard-button:hover {
+            background-color: #d32f2f;
+        }
+        #discard-button:disabled {
+            background-color: #e57373;
+            cursor: not-allowed;
+        }
+        .progress-bar-container {
+            width: 80%;
+            background-color: #f3f3f3;
+            border-radius: 10px;
+            margin: 20px auto;
+            height: 20px;
+            overflow: hidden;
+            display: none; /* Hidden initially */
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4caf50;
+            transition: width 0.4s ease;
+        }
+        #prediction-results {
+            display: none;
+            font-size: large;
+        }
+        .separator-line {
+            width: 100%;
+            height: 1px;
+            background-color: #ddd; /* Light gray color */
+            margin: auto; /* Center it and add margin above/below */
+        }
+        #chart-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 600px;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            z-index: 1000;
+            padding: 20px;
+            text-align: center;
+        }
+        #chart-popup canvas {
+            max-width: 100%;
+        }
+        #close-chart-button {
+            margin-top: 10px;
+            background-color: #f44336;
+            color: white;
+            cursor: pointer;
+        }
+        #close-chart-button:hover {
+            background-color: #d32f2f;
+        }
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+        .error-message {
+            color: red;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none; /* Hidden by default */
+        }
+
+        .image-container.invalid {
+            border: 2px solid red;
+        }
+
+    </style>
+</head>
+<body>
+<div class="content-container">
+
+    <h1>RetinAI</h1>
+    <div class="container">
+        <div class="image-container">
+            <label class="upload-button" for="left-eye-upload">Upload Retine Lijevog Oka</label>
+            <input type="file" id="left-eye-upload">
+            <img id="left-eye-preview">
+            <div class="scan-line"></div>
+            <p id="left-eye-error" class="error-message" style="color: red; display: none;"></p>
+        </div>
+        <div class="image-container">
+            <label class="upload-button" for="right-eye-upload">Upload Retine Desnog Oka</label>
+            <input type="file" id="right-eye-upload">
+            <img id="right-eye-preview">
+            <div class="scan-line"></div>
+            <p id="right-eye-error" class="error-message" style="color: red; display: none;"></p>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <form id="prediction-form" enctype="multipart/form-data">
+            <label for="age">Godine:</label>
+            <input type="number" name="age" id="age" required min="1" max="120"><br><br>
+
+            <label for="sex">Spol:</label><br>
+            <label>
+                <input type="radio" name="sex" value="Male"> Muški
+            </label>
+            <label>
+                <input type="radio" name="sex" value="Female"> Ženski
+            </label><br><br>
+
+            <button type="submit" id="predict-button" disabled>Predvidi</button>
+            <button type="button" id="discard-button" disabled>Poništi</button>
+            <button type="button" id="open-chart-button">Otvori Graf</button>
+        </form>
+    </div>
+
+    <div class="progress-bar-container" id="progress-bar-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div id="prediction-results">
+        <div class="separator-line"></div>
+        <h2 style="margin-top: 0px;">Rezultati Predviđanja</h2>
+        <p><strong>Normalno:</strong> <span id="normal"></span></p>
+        <p><strong>Dijabetes:</strong> <span id="diabetes"></span></p>
+        <p><strong>Glaukom:</strong> <span id="glaucoma"></span></p>
+        <p><strong>Katarakta:</strong> <span id="cataract"></span></p>
+        <p><strong>Starosna makularna degeneracija:</strong> <span id="amd"></span></p>
+        <p><strong>Hipertenzija:</strong> <span id="hypertension"></span></p>
+        <p><strong>Patološka Mijopija:</strong> <span id="myopia"></span></p>
+        <p><strong>Ostale bolesti/abnormalnosti:</strong> <span id="other"></span></p>
+    </div>
+
+    <div id="overlay"></div>
+    <div id="chart-popup">
+        <canvas id="popupDiseaseChart"></canvas>
+        <button id="close-chart-button">Zatvori</button>
+    </div>
+    </div>
+    <script>
+        // Define allowed retina image properties
+        const allowedFileTypes = ["image/jpeg", "image/png"]; // Allowed formats
+
+        function validateImage(file, errorElementId, previewElementId) {
+            const errorElement = document.getElementById(errorElementId);
+            const previewElement = document.getElementById(previewElementId);
+            const container = errorElement.closest(".image-container");
+
+            if (!file || !allowedFileTypes.includes(file.type)) {
+                errorElement.textContent = "Molimo prenesite validnu sliku retine (JPG ili PNG format).";
+                errorElement.style.display = "block";
+                container.classList.add("invalid");
+                return false;
+            }
+
+            const img = new Image();
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                img.src = e.target.result;
+            };
+
+            img.onload = function () {
+                previewElement.src = img.src;
+                previewElement.style.display = "block";
+                errorElement.style.display = "none";
+                container.classList.remove("invalid");
+            };
+
+            reader.readAsDataURL(file);
+            return true;
+        }
+
+        // Handle file uploads
+        document.getElementById("left-eye-upload").addEventListener("change", function () {
+            const file = this.files[0];
+            validateImage(file, "left-eye-error", "left-eye-preview");
+        });
+
+        document.getElementById("right-eye-upload").addEventListener("change", function () {
+            const file = this.files[0];
+            validateImage(file, "right-eye-error", "right-eye-preview");
+        });
+
+        // Chart.js data for popup
+        const popupCtx = document.getElementById('popupDiseaseChart').getContext('2d');
+        let popupDiseaseChart = new Chart(popupCtx, {
+            type: 'bar',
+            data: {
+                labels: ["Normalno", "Dijabetes", "Glaukom", "Katarakta", "Starosna makularna degeneracija", "Hipertenzija", "Patološka mijopija", "Ostale bolesti"],
+                datasets: [{
+                    label: 'Predviđeni slučajevi',
+                    data: [0, 0, 0, 0, 0, 0, 0, 0],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(255, 205, 86, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(153, 102, 255, 0.6)',
+                        'rgba(255, 159, 64, 0.6)',
+                        'rgba(201, 203, 207, 0.6)',
+                        'rgba(140, 140, 140, 0.6)'
+                    ],
+                    borderColor: 'rgba(0, 0, 0, 0.1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: true
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        function updateChart() {
+            $.ajax({
+                url: '/chart_data',
+                type: 'GET',
+                success: function (data) {
+                    popupDiseaseChart.data.datasets[0].data = [
+                        data['Normal'],
+                        data['Diabetes'],
+                        data['Glaucoma'],
+                        data['Cataract'],
+                        data['Age-related Macular Degeneration'],
+                        data['Hypertension'],
+                        data['Pathological Myopia'],
+                        data['Other']
+                    ];
+                    popupDiseaseChart.update();
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error fetching chart data:', error);
+                }
+            });
+        }
+        // Handle open chart button
+        $('#open-chart-button').on('click', function () {
+            updateChart();
+            $('#overlay').fadeIn();
+            $('#chart-popup').fadeIn();
+        });
+
+        // Handle close chart button
+        $('#close-chart-button').on('click', function () {
+            $('#overlay').fadeOut();
+            $('#chart-popup').fadeOut();
+        });
+        
+        // Handle file uploads and preview
+        $("#left-eye-upload, #right-eye-upload").on("change", function () {
+            const input = this;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = $(input).siblings("img");
+                img.attr("src", e.target.result).show();
+                $(input).siblings(".upload-button").hide(); // Hide upload button
+            };
+            reader.readAsDataURL(input.files[0]);
+            enableButtons(); // Enable buttons based on inputs
+        });
+
+        // Enable predict and discard buttons based on inputs
+        function enableButtons() {
+            const age = $("#age").val();
+            const sex = $("input[name='sex']:checked").val();
+            const leftEye = $("#left-eye-upload")[0].files[0];
+            const rightEye = $("#right-eye-upload")[0].files[0];
+
+            if (age && sex && leftEye && rightEye) {
+                $("#predict-button").prop("disabled", false);
+            } else {
+                $("#predict-button").prop("disabled", true);
+            }
+
+            // Enable discard button if at least one field is filled
+            if (age || sex || leftEye || rightEye) {
+                $("#discard-button").prop("disabled", false);
+            } else {
+                $("#discard-button").prop("disabled", true);
+            }
+        }
+
+        // Handle form input changes to enable/disable buttons
+        $("#age, input[name='sex']").on("change", function() {
+            enableButtons();
+        });
+
+        // Handle predict button click
+        $("#predict-button").on("click", function (event) {
+            event.preventDefault();
+            $("#predict-button").prop("disabled", true);
+            $("#discard-button").prop("disabled", true);
+            $("#open-chart-button").prop("disabled", true);
+            // Validate both files
+            const leftFile = document.getElementById("left-eye-upload").files[0];
+            const rightFile = document.getElementById("right-eye-upload").files[0];
+
+            const leftValid = validateImage(leftFile, "left-eye-error", "left-eye-preview");
+            const rightValid = validateImage(rightFile, "right-eye-error", "right-eye-preview");
+
+            if (!leftValid || !rightValid) {
+                alert("Molimo provjerite da li ste prenijeli validne slike retine.");
+                return; // Stop execution if validation fails
+            }
+            // Show scan animation and progress bar
+            $(".scan-line").show().css("animation", "scan 3s infinite"); // Continuous scan animation
+            $("#progress-bar-container").show();
+            $("#progress-bar").css("width", "0%");
+
+            // Proceed with form submission logic...
+            const formData = new FormData();
+            formData.append("left_eye", leftFile);
+            formData.append("right_eye", rightFile);
+            formData.append("age", $("#age").val());
+            formData.append("sex", $("input[name='sex']:checked").val());
+
+            // AJAX request to backend
+            $.ajax({
+                url: "/predict",
+                type: "POST",
+                data: formData,
+                processData: false,
+                contentType: false,
+beforeSend: function () {
+    $("#progress-bar").css("width", "0%");
+    $("#progress-bar-container").show();
+
+    let progress = 0;
+    const interval = setInterval(() => {
+        if (progress < 95) { // Stop at 95% to allow for finalization
+            progress += 1 + Math.random() * 2; // Add some randomness to the progress
+            $("#progress-bar").css("width", progress + "%");
+        }
+    }, 100);
+
+    // Store interval ID to stop it later
+    $("#progress-bar").data("intervalId", interval);
+},
+
+                success: function (response) {
+                    setTimeout(function () {
+                        $(".scan-line").hide();
+                        $("#progress-bar-container").hide();
+                        // Stop progress bar and set it to 100%
+                        clearInterval($("#progress-bar").data("intervalId"));
+                        $("#progress-bar").css("width", "100%");
+                        if (response.error) {
+                            alert("Error: " + response.error);
+                        } else {
+                            $("#prediction-results").show();
+                            $("#normal").text(response["Normal"]);
+                            $("#diabetes").text(response["Diabetes"]);
+                            $("#glaucoma").text(response["Glaucoma"]);
+                            $("#cataract").text(response["Cataract"]);
+                            $("#amd").text(response["Age-related Macular Degeneration"]);
+                            $("#hypertension").text(response["Hypertension"]);
+                            $("#myopia").text(response["Pathological Myopia"]);
+                            $("#other").text(response["Other"]);
+                        }
+                    }, 3000);
+                },
+                error: function (xhr, status, error) {
+                    // Stop progress bar and set it to 100%
+                    clearInterval($("#progress-bar").data("intervalId"));
+                    $("#progress-bar").css("width", "100%");
+                    $(".scan-line").hide();
+                    $("#progress-bar-container").hide();
+                    alert("Predviđanje neuspjelo: " + xhr.responseJSON.error);
+                      $(".upload-button").show();
+                    $("input[type='file']").val("");
+                    $("img").hide().attr("src", "");
+                    $("#progress-bar-container").hide();
+                    $("#progress-bar").css("width", "0%");
+                    $("#age").val("");
+                    $("input[name='sex']").prop("checked", false);
+                    $("#prediction-results").hide();
+                    $("#predict-button").prop("disabled", true);
+                    $("#discard-button").prop("disabled", true);
+                },
+            });
+        });
+
+        // Handle discard button click
+        $("#discard-button").on("click", function () {
+            $(".upload-button").show();
+            $("input[type='file']").val("");
+            $("img").hide().attr("src", "");
+            $("#progress-bar-container").hide();
+            $("#progress-bar").css("width", "0%");
+            $("#age").val("");
+            $("input[name='sex']").prop("checked", false);
+            $("#prediction-results").hide();
+            $("#predict-button").prop("disabled", true);
+            $("#discard-button").prop("disabled", true);
+        });
+    </script>
+</body>
+</html>
